@@ -150,3 +150,48 @@ docker exec -it redis redis-cli
 
 
 
+### 4、tomcat
+
+拉取镜像
+
+```powershell
+docker pull tomcat
+```
+
+运行容器并挂在目录
+
+```shell
+docker run -p 8080:8080 --name tomcat --privileged=true -v /etc/localtime:/etc/localtime:ro -v /mydata/tomcat/webapps:/usr/local/tomcat/webapps -v /mydata/tomcat/conf:/usr/local/tomcat/conf -v /mydata/tomcat/logs:/usr/local/tomcat/logs -d tomcat 
+```
+
+此时启动容器会失败，因为进行挂在conf目录的时候不会生成相关的文件？？
+
+解决方法：
+
+1、先创建一个基础容器
+
+```shell
+docker run -p 8080:8080 --name tomcat1 -d tomcat 
+```
+
+2、把基础容器的相关文件复制到目标容器的挂在目录中
+
+```shell\
+docker cp tomcat1:/usr/local/tomcat/conf /mydata/tomcat/
+docker cp tomcat1:/usr/local/tomcat/webapps /mydata/tomcat/
+```
+
+3、基础容器删除(删不删都无所谓)
+
+```
+docker rm 容器id
+```
+
+4、重启目标容器
+
+```shell
+docker restart tomcat
+```
+
+
+
