@@ -193,5 +193,11 @@ docker rm 容器id
 docker restart tomcat
 ```
 
+5、开机自启动
+
+```
+docker update tomcat --restart=always
+```
+
 
 
