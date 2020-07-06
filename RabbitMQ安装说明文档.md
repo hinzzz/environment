@@ -10,7 +10,7 @@ yum install socat
 
 
 
-## 2. 安装Erlang
+## 2. 安装Erlang 
 
 ![1571887406513](assets/1571887406513.png) 
 
