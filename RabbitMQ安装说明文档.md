@@ -1,6 +1,6 @@
 ## 1. 安装Socat
 
-在线安装依赖环境：
+在线安装依赖环境：1
 
 ```shell
 yum install gcc
