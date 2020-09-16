@@ -1,5 +1,5 @@
 @echo off
-#
+
 SETLOCAL
 
 set SCRIPT_DIR=%~dp0
