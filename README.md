@@ -2,8 +2,6 @@
 
 
 
-
-
 ### 1、docker安装
 
 ```shell
@@ -50,11 +48,31 @@ sudo systemctl restart docker
 
 
 
+### 2、 常用命令
+
+1、查看容器实际路径
+
+```powershell
+docker info | grep "Dir"
+```
+
+2、查看容器映射配置信息
+
+```powershell
+docker inspect acc2a0085bdc | grep Mounts -A 20
+```
+
+3、容器开机自启动
+
+```powershell
+docker update rabbitmq --restart=always
+```
 
 
 
 
-### 2、mysql
+
+### 3、mysql
 
 拉取镜像
 
@@ -107,7 +125,7 @@ docker update mysql --restart=always
 
 
 
-### 3、redis
+### 4、redis
 
 拉去镜像
 
@@ -150,7 +168,7 @@ docker exec -it redis redis-cli
 
 
 
-### 4、tomcat
+### 5、tomcat
 
 拉取镜像
 
@@ -201,7 +219,7 @@ docker update tomcat --restart=always
 
 
 
-### 5、rabbitmq
+### 6、rabbitmq
 
 1、拉取镜像
 
@@ -229,3 +247,4 @@ docker update rabbitmq --restart=always
 
 
 
+docker run -p 6379:6379 --name redis -v /home/redis/redis.conf:/etc/redis/redis.conf -v /home/redis/data:/data -d redis redis-server /etc/redis/redis.conf --appendonly yes
