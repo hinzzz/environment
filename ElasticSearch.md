@@ -349,7 +349,7 @@ GET mall/_search
 #_source 指定查询结果字段 可支持多个
 ```
 
-- match 匹配查询
+##### match 匹配查询
 
 - 基本类型  精确匹配
 
@@ -365,7 +365,7 @@ GET /mall/_search
 }
 ```
 
-- 文本类型 全文检索：最终会按照评分进行排序 会对检索条件进行分词匹配
+- 文本类型 会将查询条件进行分词， 全文检索：最终会按照评分进行排序 会对检索条件进行分词匹配
 
 ```shell
 #查询name 包含 "hinzzz"或者name 包含 "wlq"或者name 包含 "hinz100"的数据
@@ -379,7 +379,9 @@ GET /mall/_search
 }
 ```
 
-- match_phrase	短句匹配：不会对查询条件进行分词检索
+##### match_phrase	短句匹配
+
+- 不会对查询条件进行分词检索
 
 ```shell
 #查询name 包含 "hinzzz wlq"的结果
@@ -393,7 +395,9 @@ GET /mall/_search
 }
 ```
 
-- keyworkd 精确匹配：匹配的条件就是要显示字段的全部值，要进行精确匹配的。
+##### keyworkd 精确匹配
+
+- 匹配的条件就是要显示字段的全部值，要进行精确匹配的。
 
 ```shell
 #查询name="hinzzz wlq"
@@ -407,7 +411,7 @@ GET /mall/_search
 }
 ```
 
-- multi_math 多字段匹配
+##### multi_math 多字段匹配
 
 ```shell
 # 查询name和address 匹配sz的结果
@@ -422,7 +426,7 @@ GET /mall/_search
 }
 ```
 
-- bool 用来做符合查询
+##### bool 用来做符合查询
 
 复合语句可以合并，任何其他查询语句，包括符合语句。这也就意味着，复合语句之间
 可以互相嵌套，可以表达非常复杂的逻辑。
@@ -431,6 +435,7 @@ GET /mall/_search
 must：必须达到must所列举的所有条件
 must_not：必须不匹配must_not所列举的所有条件。
 should：应该满足should所列举的条件。 类似or
+应该达到should列举的条件，如果到达会增加相关文档的评分，并不会改变查询的结果。如果query中只有should且只有一种匹配规则，那么should的条件就会被作为默认匹配条件而去改变查询结果
 ```
 
 ```shell
@@ -455,7 +460,9 @@ GET /mall/_search
 }
 ```
 
-- filter 结果过滤
+##### filter 结果过滤，不计算相关得分
+
+- 并不是所有的查询都要产生分数，特别是那些仅用于filering的文档。为了不计算分数，elasticsearch会自动查询场景别切优化查询结果
 
 ```shell
 #先查询name匹配hinzzz的结果 再从结果中获取 age>10 并且 age < 20
@@ -482,4 +489,366 @@ GET /mall/_search
   }
 }
 ```
+
+##### term 查找倒排索引中确切的term
+
+- 并不知道分词器的存在。这种查询适合**keyword** 、**numeric**、**date**
+
+导入数据
+
+```shell
+POST /test/term
+{
+  "name":"hinz",
+  "address":"bj sz gz"
+  
+}
+POST /test/term
+{
+  "name":"hinz",
+  "address":"sz"
+  
+}
+POST /test/term
+{
+  "name":"Hinz",
+  "address":"sz"
+  
+}
+```
+
+- 查询1
+
+```shell
+GET /test/_search
+{
+  "query": {
+    "term": {
+      "name": {
+        "value": "Hinz"
+      }
+    }
+  }
+}
+```
+
+返回结果，无记录
+
+```
+{
+  "took" : 2,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 0,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  }
+}
+```
+
+分析 ：string数据存到es中时，默认是text,被**standard analyzer**分词器分词，大写字母全部转为了小写字母
+
+```shell
+GET /test/_analyze
+{
+  "field": "name", 
+  "text": "Hinz"
+}
+#结果
+{
+  "tokens" : [
+    {
+      "token" : "hinz",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    }
+  ]
+}
+```
+
+- 查询2
+
+```
+GET /test/_search
+{
+  "query": {
+    "term": {
+      "address": {
+        "value": "bj sz"
+      }
+    }
+  }
+}
+```
+
+结果
+
+```shell
+GET /test/_search
+{
+  "query": {
+    "term": {
+      "address": {
+        "value": "bj sz"
+      }
+    }
+  }
+}
+```
+
+分析：因为term查询并不会对查询条件进行分词，而默认存进去的“bj sz ”则被默认分词器分词了，所以在倒排索引中并不存在整个词“bj sz ”
+
+```shell
+GET /test/_analyze
+{
+  "field": "address", 
+  "text": "bj sz"
+}
+#结果
+{
+  "tokens" : [
+    {
+      "token" : "bj",
+      "start_offset" : 0,
+      "end_offset" : 2,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "sz",
+      "start_offset" : 3,
+      "end_offset" : 5,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    }
+  ]
+}
+```
+
+##### Aggregation 聚合查询
+
+- 聚合提供了数据分组和提取数据的能力，类似于mysql中的group by ,avg，max等聚合函数
+
+```shell
+#语法格式
+"aggs":{
+    "aggs_name这次聚合的名字，方便展示在结果集中":{
+        "AGG_TYPE聚合的类型(avg,term,terms)":{}
+     }
+}
+```
+
+- 查询1
+
+```shell
+#address中包含sz的所有人的年龄分布以及平均年龄，但不显示这些人的详情
+#准备数据
+POST /testaggs/user
+{
+  "name":"hinz1",
+  "address":"bj sz gz",
+  "age":"18"
+  
+}
+POST /testaggs/user
+{
+  "name":"hinz2",
+  "address":"bj sz",
+  "age":"19"
+  
+}
+POST /testaggs/user
+{
+  "name":"hinz3",
+  "address":"sz",
+  "age":"20"
+  
+}
+#查询
+GET /testaggs/_search
+{
+  "query": {
+    "match": {
+      "address": "sz"
+    }
+  },
+  "aggs": {
+    "ageAvg": {
+      "avg": {"field": "age"}
+    }
+  },
+  "size": 0 //不显示搜索数据
+}
+
+#查询结果
+{
+  "took" : 16,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 3,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "ageAvg" : {
+      "value" : 19.0
+    }
+  }
+}
+```
+
+
+
+#### 2、Mapping 
+
+##### （1）字段类型
+
+|    字符串（string）    |                         text,keyword                         |
+| :--------------------: | :----------------------------------------------------------: |
+|  数字类型（Numberic）  | long，integer，short，double，byte，float，half_float，scaled_float |
+|    日期类型（Date）    |                             date                             |
+|  布尔类型（Boolean）   |                           boolean                            |
+|  二进制类型（Binary）  |                            binary                            |
+|   数组类型（Array）    |                            array                             |
+|   对象类型（Object）   |                     object用于单json对象                     |
+|   嵌套类型（Nested）   |                       用于json对象数组                       |
+| 地理坐标（Geo-points） |                 geo_point用于描述经纬度坐标                  |
+| 地理图形（Geo-Shape）  |             geo_shape用于描述复杂类型，如多边形              |
+
+##### （2）映射
+
+Mapping用于定义一个文档（document）,以及他所包含的属性（field）是如何存储和索引的。比如：使用Mapping来定义：
+
+- 那些字符串属性应该被全文检索（full test fields）
+- 那些属性包含数字、日期、地理位置信息
+- 文档中的所有数据是否都能被索引（all配置）
+- 日期的格式
+- 自定义映射规则来执行动态增加属性
+- 查看Mapping信息
+
+```shell
+#查看Mapping信息
+GET /testaggs/_mapping
+#结果
+{
+  "testaggs" : {
+    "mappings" : {
+      "properties" : {
+        "address" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "age" : {
+          "type" : "long"
+        },
+        "name" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+```
+
+```shell
+#设置属性是否被全文检索
+PUT /my_index
+{
+  "mappings": {
+    "properties": {
+      "age": {
+        "type": "integer"
+      },
+      "email": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text"
+      }
+    }
+  }
+}
+#结果
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "my_index"
+}
+#查看
+GET /my_index
+#结果
+{
+  "my_index" : {
+    "aliases" : { },
+    "mappings" : {
+      "properties" : {
+        "age" : {
+          "type" : "integer"
+        },
+        "email" : {
+          "type" : "keyword"
+        },
+        "name" : {
+          "type" : "text"
+        }
+      }
+    },
+    "settings" : {
+      "index" : {
+        "creation_date" : "1609748702511",
+        "number_of_shards" : "1",
+        "number_of_replicas" : "1",
+        "uuid" : "09AdAliQTYq0JxuE7dk_KQ",
+        "version" : {
+          "created" : "7040299"
+        },
+        "provided_name" : "my_index"
+      }
+    }
+  }
+}
+```
+
+##### （3）新版本改变
+
+1. 关系型数据库中两个数据表示是独立的，即使他们里面有相同名称的列也不影响使用，但ES中不是这样的。elasticsearch是基于Lucene开发的搜索引擎，而ES中不同type下名称相同的filed最终在Lucene中的处理方式是一样的。
+   1. 两个不同type下的两个user_name，在ES同一个索引下其实被认为是同一个filed，你必须在两个不同的type中定义相同的filed映射。否则，不同type中的相同字段名称就会在处理中出现冲突的情况，导致Lucene处理效率下降。
+   2. 去掉type就是为了提高ES处理数据的效率。
+2. Elasticsearch 7.x URL中的type参数为可选。比如，索引一个文档不再要求提供文档类型
+3. Elasticsearch 8.x 不再支持URL中的type参数。
+4. 解决：
+   1. 将索引从多类型迁移到单类型，每种类型文档一个独立索引
+   2. 将已存在的索引下的类型数据，全部迁移到指定位置即可
 
