@@ -1,5 +1,7 @@
 
 
+
+
 ### 一、什么是Elasticsearch?
 
 [官网](https://www.elastic.co/cn/what-is/elasticsearch)
@@ -841,6 +843,152 @@ GET /my_index
 }
 ```
 
+添加新的字段映射
+
+```shell
+PUT /my_index/_mapping
+{
+  "properties": {
+    "employee-id": {
+      "type": "keyword",
+      "index": false
+    }
+  }
+}
+
+
+```
+
+**增加数据**
+
+```she
+POST /my_index/_doc
+{
+  "name":"hinz",
+  "email":"aa@qq.com",
+  "age":18,
+  "employee-id":1
+  
+}
+```
+
+
+
+**更新映射**
+
+对于已经存在的字段映射，我们不能进行更新。更新必须创建新的索引，进行数据迁移
+
+```
+POST _reindex [固定写法]
+{
+  "source":{
+      "index":"twitter"
+   },
+  "dest":{
+      "index":"new_twitters"
+   }
+}
+```
+
+**将my_index索引的数据迁移到my_new_index去**
+
+步骤：
+
+1. 创建新的索引
+
+   ```shell
+   put /my_new_index
+   {
+     "mappings":{
+       "properties": {
+       "age": {
+         "type": "long",
+         "index": true
+       },
+       "name":{
+         "type": "keyword",
+         "index": true
+       },
+       "email":{
+         "type": "text",
+         "index": true
+       },
+       "employee-id" : {
+             "type" : "keyword",
+             "index" : false
+           }
+     }
+     }
+   }
+   ```
+
+2. 执行迁移
+
+   ```shell
+   POST _reindex
+   {
+     "source":{
+         "index":"my_index"
+      },
+     "dest":{
+         "index":"my_new_index"
+      }
+   }
+   
+   #结果
+   {
+     "took" : 52,
+     "timed_out" : false,
+     "total" : 1,
+     "updated" : 0,
+     "created" : 1,
+     "deleted" : 0,
+     "batches" : 1,
+     "version_conflicts" : 0,
+     "noops" : 0,
+     "retries" : {
+       "bulk" : 0,
+       "search" : 0
+     },
+     "throttled_millis" : 0,
+     "requests_per_second" : -1.0,
+     "throttled_until_millis" : 0,
+     "failures" : [ ]
+   }
+   
+   ```
+
+3. 迁移完成
+
+   ```shell
+   GET /my_new_index/_mapping
+   #结果
+   {
+     "my_new_index" : {
+       "mappings" : {
+         "properties" : {
+           "age" : {
+             "type" : "long"
+           },
+           "email" : {
+             "type" : "text"
+           },
+           "employee-id" : {
+             "type" : "keyword",
+             "index" : false
+           },
+           "name" : {
+             "type" : "keyword"
+           }
+         }
+       }
+     }
+   }
+   
+   ```
+
+   
+
 ##### （3）新版本改变
 
 1. 关系型数据库中两个数据表示是独立的，即使他们里面有相同名称的列也不影响使用，但ES中不是这样的。elasticsearch是基于Lucene开发的搜索引擎，而ES中不同type下名称相同的filed最终在Lucene中的处理方式是一样的。
@@ -851,4 +999,310 @@ GET /my_index
 4. 解决：
    1. 将索引从多类型迁移到单类型，每种类型文档一个独立索引
    2. 将已存在的索引下的类型数据，全部迁移到指定位置即可
+
+#### 3、分词
+
+[分词器]: https://www.elastic.co/guide/en/elasticsearch/reference/7.4/analysis.html
+
+一个tokenizer（分词器）接收一个字符流，将之分割为独立的tokens（词元，通常是独立的单词），然后输出tokens流。
+
+例如：whitespace tokenizer遇到空白字符时分割文本。它会将文本“Quick brown fox!”分割为[Quick,brown,fox!]。
+
+**可以使用分词器对一个字符串进行分析，得出最后分词的结果。在我们使用Elasticsearch检索不到想要的结果时，善于应用分析器**
+
+```shell
+POST _analyze
+{
+  "analyzer": "standard",
+  "text": "The 2 QUICK Brown-Foxes jumped over the lazy dog's bone."
+}
+#这段话被分词为
+{
+  "tokens" : [
+    {
+      "token" : "the",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "2",
+      "start_offset" : 4,
+      "end_offset" : 5,
+      "type" : "<NUM>",
+      "position" : 1
+    },
+    {
+      "token" : "quick",
+      "start_offset" : 6,
+      "end_offset" : 11,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    },
+    {
+      "token" : "brown",
+      "start_offset" : 12,
+      "end_offset" : 17,
+      "type" : "<ALPHANUM>",
+      "position" : 3
+    },
+    {
+      "token" : "foxes",
+      "start_offset" : 18,
+      "end_offset" : 23,
+      "type" : "<ALPHANUM>",
+      "position" : 4
+    },
+    {
+      "token" : "jumped",
+      "start_offset" : 24,
+      "end_offset" : 30,
+      "type" : "<ALPHANUM>",
+      "position" : 5
+    },
+    {
+      "token" : "over",
+      "start_offset" : 31,
+      "end_offset" : 35,
+      "type" : "<ALPHANUM>",
+      "position" : 6
+    },
+    {
+      "token" : "the",
+      "start_offset" : 36,
+      "end_offset" : 39,
+      "type" : "<ALPHANUM>",
+      "position" : 7
+    },
+    {
+      "token" : "lazy",
+      "start_offset" : 40,
+      "end_offset" : 44,
+      "type" : "<ALPHANUM>",
+      "position" : 8
+    },
+    {
+      "token" : "dog's",
+      "start_offset" : 45,
+      "end_offset" : 50,
+      "type" : "<ALPHANUM>",
+      "position" : 9
+    },
+    {
+      "token" : "bone",
+      "start_offset" : 51,
+      "end_offset" : 55,
+      "type" : "<ALPHANUM>",
+      "position" : 10
+    }
+  ]
+}
+```
+
+##### 1、安装ik分词器
+
+找到对应的elasticsearch版本https://github.com/medcl/elasticsearch-analysis-ik/releases
+
+![]( http://hinzzz.oss-cn-shenzhen.aliyuncs.com/ik_version.png?Expires=32500886400&OSSAccessKeyId=LTAI4G9rkBZLb3G51wiGr2sS&Signature=hZNL0hdwPEIKxLFvtU4Wv3%2BZUzQ%3D)
+
+将解压的好的压缩包放到elasticsearch插件目录/home/elasticsearch/plugins，即上面安装elasticsearch时所挂在的plugins目录
+
+```shell
+tar -zxvf elasticsearch-analysis-ik-7.4.2.zip ik
+```
+
+重启Elasticsearch
+
+```shell
+docker restart elasticsearch
+```
+
+查看是否安装成功
+
+```shell
+docker exec -it elasticsearch sh
+cd /usr/share/elasticsearch/bin
+elasticsearch-plugin list
+#返回
+ik
+安装成功
+```
+
+**测试分词**
+
+- 默认分词器
+
+  ```shell
+  POST _analyze
+  {
+    "text": "阿里巴巴welcome"
+  }
+  #结果
+  {
+    "tokens" : [
+      {
+        "token" : "阿",
+        "start_offset" : 0,
+        "end_offset" : 1,
+        "type" : "<IDEOGRAPHIC>",
+        "position" : 0
+      },
+      {
+        "token" : "里",
+        "start_offset" : 1,
+        "end_offset" : 2,
+        "type" : "<IDEOGRAPHIC>",
+        "position" : 1
+      },
+      {
+        "token" : "巴",
+        "start_offset" : 2,
+        "end_offset" : 3,
+        "type" : "<IDEOGRAPHIC>",
+        "position" : 2
+      },
+      {
+        "token" : "巴",
+        "start_offset" : 3,
+        "end_offset" : 4,
+        "type" : "<IDEOGRAPHIC>",
+        "position" : 3
+      },
+      {
+        "token" : "welcome",
+        "start_offset" : 4,
+        "end_offset" : 11,
+        "type" : "<ALPHANUM>",
+        "position" : 4
+      }
+    ]
+  }
+  
+  ```
+
+- ik中文分词
+
+  ```shell
+  POST _analyze
+  {
+    "analyzer": "ik_smart", 
+    "text": "阿里巴巴welcome"
+  }
+  #结果
+  {
+    "tokens" : [
+      {
+        "token" : "阿里巴巴",
+        "start_offset" : 0,
+        "end_offset" : 4,
+        "type" : "CN_WORD",
+        "position" : 0
+      },
+      {
+        "token" : "welcome",
+        "start_offset" : 4,
+        "end_offset" : 11,
+        "type" : "ENGLISH",
+        "position" : 1
+      }
+    ]
+  }
+  ```
+
+  ```shell
+  POST _analyze
+  {
+    "analyzer": "ik_smart", 
+    "text": "我是周树人"
+  }
+  #结果
+  {
+    "tokens" : [
+      {
+        "token" : "我",
+        "start_offset" : 0,
+        "end_offset" : 1,
+        "type" : "CN_CHAR",
+        "position" : 0
+      },
+      {
+        "token" : "是",
+        "start_offset" : 1,
+        "end_offset" : 2,
+        "type" : "CN_CHAR",
+        "position" : 1
+      },
+      {
+        "token" : "周树人",
+        "start_offset" : 2,
+        "end_offset" : 5,
+        "type" : "CN_WORD",
+        "position" : 2
+      }
+    ]
+  }
+  
+  ```
+
+  ```shell
+  POST _analyze
+  {
+    "analyzer": "ik_max_word", 
+    "text": "我是周树人"
+  }
+  #结果
+  {
+    "tokens" : [
+      {
+        "token" : "我",
+        "start_offset" : 0,
+        "end_offset" : 1,
+        "type" : "CN_CHAR",
+        "position" : 0
+      },
+      {
+        "token" : "是",
+        "start_offset" : 1,
+        "end_offset" : 2,
+        "type" : "CN_CHAR",
+        "position" : 1
+      },
+      {
+        "token" : "周树人",
+        "start_offset" : 2,
+        "end_offset" : 5,
+        "type" : "CN_WORD",
+        "position" : 2
+      },
+      {
+        "token" : "树人",
+        "start_offset" : 3,
+        "end_offset" : 5,
+        "type" : "CN_WORD",
+        "position" : 3
+      }
+    ]
+  }
+  ```
+
+##### 2、自定义词库
+
+**修改/usr/share/elasticsearch/plugins/ik/config中的IKAnalyzer.cfg.xml**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+        <comment>IK Analyzer 扩展配置</comment>
+        <!--用户可以在这里配置自己的扩展字典 -->
+        <entry key="ext_dict"></entry>
+         <!--用户可以在这里配置自己的扩展停止词字典-->
+        <entry key="ext_stopwords"></entry>
+        <!--用户可以在这里配置远程扩展字典 nginx服务器-->
+        <entry key="remote_ext_dict">http://localhost/es/fenci.txt</entry>
+        <!--用户可以在这里配置远程扩展停止词字典-->
+        <!-- <entry key="remote_ext_stopwords">words_location</entry> -->
+</properties>
+```
 
