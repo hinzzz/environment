@@ -1288,7 +1288,7 @@ ik
 
 ##### 2、自定义词库
 
-**修改/usr/share/elasticsearch/plugins/ik/config中的IKAnalyzer.cfg.xml**
+**修改/usr/share/elasticsearch/plugins/ik/config中的IKAnalyzer.cfg.xml  配置完要重启elasticsearch**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1300,9 +1300,125 @@ ik
          <!--用户可以在这里配置自己的扩展停止词字典-->
         <entry key="ext_stopwords"></entry>
         <!--用户可以在这里配置远程扩展字典 nginx服务器-->
-        <entry key="remote_ext_dict">http://localhost/es/fenci.txt</entry>
+        <entry key="remote_ext_dict">http://ip/fenci.txt</entry>
         <!--用户可以在这里配置远程扩展停止词字典-->
         <!-- <entry key="remote_ext_stopwords">words_location</entry> -->
 </properties>
+```
+
+fenci.txt内容 多个词汇换行填写
+
+```txt
+联拓宝
+```
+
+###### （1）没指定词库前
+
+```shell
+POST /my_index/_analyze
+{
+  "analyzer": "ik_max_word",
+  "text":"联拓宝项目"
+  
+}
+#结果
+{
+  "tokens" : [
+    {
+      "token" : "联",
+      "start_offset" : 0,
+      "end_offset" : 1,
+      "type" : "CN_CHAR",
+      "position" : 0
+    },
+    {
+      "token" : "拓",
+      "start_offset" : 1,
+      "end_offset" : 2,
+      "type" : "CN_CHAR",
+      "position" : 1
+    },
+    {
+      "token" : "宝",
+      "start_offset" : 2,
+      "end_offset" : 3,
+      "type" : "CN_CHAR",
+      "position" : 2
+    },
+    {
+      "token" : "项目",
+      "start_offset" : 3,
+      "end_offset" : 5,
+      "type" : "CN_WORD",
+      "position" : 3
+    }
+  ]
+}
+```
+
+###### （2）指定词库后
+
+```shell
+POST /my_index/_analyze
+{
+  "analyzer": "ik_max_word",
+  "text":"联拓宝项目"
+  
+}
+#结果
+{
+  "tokens" : [
+    {
+      "token" : "联拓宝",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "CN_WORD",
+      "position" : 0
+    },
+    {
+      "token" : "项目",
+      "start_offset" : 3,
+      "end_offset" : 5,
+      "type" : "CN_WORD",
+      "position" : 1
+    }
+  ]
+}
+```
+
+### 九、整合SpringBoot
+
+[官方api]: https://www.elastic.co/guide/en/elasticsearch/client/java-rest/7.x/java-rest-high.html
+
+**jar包版本与Elasticsearch保持一致**
+
+```xml
+<dependency>
+    <groupId>org.elasticsearch.client</groupId>
+    <artifactId>elasticsearch-rest-high-level-client</artifactId>
+    <version>7.4.2</version>
+</dependency>
+```
+
+![](http://hinzzz.oss-cn-shenzhen.aliyuncs.com/elasticsearch_pom.png?Expires=32500886400&OSSAccessKeyId=LTAI4G9rkBZLb3G51wiGr2sS&Signature=zh2bRCQT3VLwziwDaijr1kgjzug%3D)
+
+引入7.4.2版本之后，发现实际导入的是6.8.5版本，
+
+查看springboot的默认引用
+
+![](http://hinzzz.oss-cn-shenzhen.aliyuncs.com/springboot_ver1.png?Expires=32500886400&OSSAccessKeyId=LTAI4G9rkBZLb3G51wiGr2sS&Signature=ZngKB6OqhRiOeAk3QPMeQXeFi1o%3D)
+
+![](http://hinzzz.oss-cn-shenzhen.aliyuncs.com/springboot_ver2.png?Expires=32500886400&OSSAccessKeyId=LTAI4G9rkBZLb3G51wiGr2sS&Signature=8ftx8WPiRFQXJNQwPTinGxhk9%2F4%3D)
+
+![](http://hinzzz.oss-cn-shenzhen.aliyuncs.com/springboot_ver3.png?Expires=32500886400&OSSAccessKeyId=LTAI4G9rkBZLb3G51wiGr2sS&Signature=mDMSCmUtjsc5XyKp1mBZFgTPPvA%3D)
+
+所以需要重新制定elasticsearch的版本
+
+```xml
+    <properties>
+        ...
+        <elasticsearch.version>7.6.2</elasticsearch.version>
+    </properties>
+
 ```
 
