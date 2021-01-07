@@ -1312,7 +1312,7 @@ fenci.txt内容 多个词汇换行填写
 联拓宝
 ```
 
-###### （1）没指定词库前
+###### （1）指定词库前
 
 ```shell
 POST /my_index/_analyze
@@ -1417,8 +1417,276 @@ POST /my_index/_analyze
 ```xml
     <properties>
         ...
-        <elasticsearch.version>7.6.2</elasticsearch.version>
+        <elasticsearch.version>7.4.2</elasticsearch.version>
     </properties>
 
+```
+
+#### 1、初始化
+
+```java
+ /**集群可以配置多个HttpHost*/
+        /*RestHighLevelClient client = new RestHighLevelClient(
+                RestClient.builder(
+                        new HttpHost("localhost", 9201, "http"))
+                        new HttpHost("localhost", 9200, "http"),
+        );*/
+        RestHighLevelClient client = new RestHighLevelClient(
+                RestClient.builder(
+                        new HttpHost("120.79.48.191", 9200, "http"))
+        );
+```
+
+#### 2、索引
+
+```java
+@Test
+	void indexData() throws Exception{
+		IndexRequest indexRequest = new IndexRequest("user");
+		User user = new User("hinzzz",18,"亚历山大大西北出来");
+		String jsonString = JSON.toJSONString(user);
+		//设置要保存的内容
+		indexRequest.source(jsonString, XContentType.JSON);
+		//执行创建索引和保存数据
+		IndexResponse index = client.index(indexRequest, ElasticSearchConfig.COMMON_OPTIONS);
+
+		System.out.println(index);
+		//IndexResponse[index=user,type=_doc,id=76Sb2nYBEfd-vMN2ksrv,version=1,result=created,seqNo=2,primaryTerm=1,shards={"total":2,"successful":1,"failed":0}]
+	}
+```
+
+#### 3、简单查询
+
+```java
+@Test
+	void getData()throws Exception{
+		GetRequest getIndexRequest = new GetRequest("user","7aRw1XYBEfd-vMN2XMo_");
+		GetResponse getResponse = client.get(getIndexRequest, ElasticSearchConfig.COMMON_OPTIONS);
+		System.out.println("getResponse = " + getResponse);
+		//getResponse = {"_index":"user","_type":"_doc","_id":"7aRw1XYBEfd-vMN2XMo_","_version":1,"_seq_no":0,"_primary_term":1,"found":true,"_source":{"address":"亚历山大大西北出来","age":18,"name":"hinzzz"}}
+		//getResponse.getXXX 可获取索引信息
+		String index = getResponse.getIndex();
+		System.out.println(index);
+		String id = getResponse.getId();
+		System.out.println(id);
+		if (getResponse.isExists()) {
+			long version = getResponse.getVersion();
+			System.out.println(version);
+			String sourceAsString = getResponse.getSourceAsString();
+			System.out.println(sourceAsString);
+			Map<String, Object> sourceAsMap = getResponse.getSourceAsMap();//数据转map
+			System.out.println(sourceAsMap);
+			byte[] sourceAsBytes = getResponse.getSourceAsBytes();
+		}
+	}
+```
+
+#### 4、复杂查询
+
+**搜索address中包含北京的所有人的年龄分布以及平均年龄，平均薪资**
+
+```shell
+GET _search
+{
+  "query": {
+    "match": {
+      "address": "北京"
+    }
+  },
+  "aggs": {
+    "ageAvg": {
+      "avg": {
+        "field": "age"
+      }
+    },
+    "allAge":{
+      "terms": {
+        "field": "age",
+        "size": 10
+      }
+    },
+    "maxAge":{
+      "max": {
+        "field": "salary"
+      }
+    }
+  }
+}
+
+#
+{
+  "took" : 22,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 11,
+    "successful" : 10,
+    "skipped" : 0,
+    "failed" : 1,
+    "failures" : [
+      {
+        "shard" : 0,
+        "index" : "db",
+        "node" : "GkkvBdNuS36wLEIG05ynJw",
+        "reason" : {
+          "type" : "illegal_argument_exception",
+          "reason" : "Fielddata is disabled on text fields by default. Set fielddata=true on [age] in order to load fielddata in memory by uninverting the inverted index. Note that this can however use significant memory. Alternatively use a keyword field instead."
+        }
+      }
+    ]
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4,
+      "relation" : "eq"
+    },
+    "max_score" : 1.2127436,
+    "hits" : [
+      {
+        "_index" : "user",
+        "_type" : "_doc",
+        "_id" : "86Ta2nYBEfd-vMN24spZ",
+        "_score" : 1.2127436,
+        "_source" : {
+          "name" : "z6",
+          "age" : 27,
+          "salary" : 963,
+          "address" : "北京五环"
+        }
+      },
+      {
+        "_index" : "user",
+        "_type" : "_doc",
+        "_id" : "9KTb2nYBEfd-vMN2Qcq0",
+        "_score" : 1.2127436,
+        "_source" : {
+          "name" : "s7",
+          "age" : 25,
+          "salary" : 632,
+          "address" : "北京二环"
+        }
+      },
+      {
+        "_index" : "user",
+        "_type" : "_doc",
+        "_id" : "9aTb2nYBEfd-vMN2m8p_",
+        "_score" : 1.1082253,
+        "_source" : {
+          "name" : "g8",
+          "age" : 45,
+          "salary" : 1111,
+          "address" : "北京紫禁城"
+        }
+      },
+      {
+        "_index" : "user",
+        "_type" : "_doc",
+        "_id" : "8KTY2nYBEfd-vMN298qW",
+        "_score" : 0.9452891,
+        "_source" : {
+          "name" : "z3",
+          "age" : 20,
+          "salary" : 123,
+          "address" : "北京天安门广场"
+        }
+      }
+    ]
+  },
+  "aggregations" : {
+    "ageAvg" : {
+      "value" : 29.25
+    },
+    "allAge" : {
+      "doc_count_error_upper_bound" : 0,
+      "sum_other_doc_count" : 0,
+      "buckets" : [
+        {
+          "key" : 20,
+          "doc_count" : 1
+        },
+        {
+          "key" : 25,
+          "doc_count" : 1
+        },
+        {
+          "key" : 27,
+          "doc_count" : 1
+        },
+        {
+          "key" : 45,
+          "doc_count" : 1
+        }
+      ]
+    },
+    "maxAge" : {
+      "value" : 707.25
+    }
+  }
+}
+
+```
+
+```java
+@Test
+	void complexSearch()throws Exception{
+		//搜索address中包含北京的所有人的年龄分布以及平均年龄，平均薪资
+		SearchRequest searchRequest = new SearchRequest();
+
+		//返回所有结果
+		//System.out.println("查询所有数据" + client.search(searchRequest, ElasticSearchConfig.COMMON_OPTIONS));
+
+		//指定索引
+		//searchRequest.indices("user","my_index");
+		//System.out.println("查询多个索引" + client.search(searchRequest, ElasticSearchConfig.COMMON_OPTIONS));
+
+
+		//查询地址
+		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+		searchSourceBuilder.query(QueryBuilders.matchQuery("address","北京"));
+
+		//查询年龄分布
+		TermsAggregationBuilder termsAggregationBuilder = AggregationBuilders.terms("allAge").field("age").size(100);
+		searchSourceBuilder.aggregation(termsAggregationBuilder);
+
+		//查询平均年龄
+		AvgAggregationBuilder avgAggregationBuilder = AggregationBuilders.avg("ageAvg").field("age");
+		searchSourceBuilder.aggregation(avgAggregationBuilder);
+
+		//查询平均薪资
+		AvgAggregationBuilder avgAggregationBuilder1 = AggregationBuilders.avg("salaryAvg").field("salary");
+		searchSourceBuilder.aggregation(avgAggregationBuilder1);
+
+		searchRequest.source(searchSourceBuilder);
+
+		SearchResponse searchResponse = client.search(searchRequest, ElasticSearchConfig.COMMON_OPTIONS);
+
+		System.out.println("search = " + searchResponse);
+
+
+		//将检索结果封装为Bean
+		SearchHits hits = searchResponse.getHits();
+		SearchHit[] searchHits = hits.getHits();
+		for (SearchHit searchHit : searchHits) {
+			String sourceAsString = searchHit.getSourceAsString();
+			User user = JSON.parseObject(sourceAsString, User.class);
+			System.out.println(user);
+
+		}
+
+		//获取聚合信息
+		Aggregations aggregations = searchResponse.getAggregations();
+
+		Terms ageAgg1 = aggregations.get("allAge");
+
+		for (Terms.Bucket bucket : ageAgg1.getBuckets()) {
+			String keyAsString = bucket.getKeyAsString();
+			System.out.println("年龄："+keyAsString+" ==> "+bucket.getDocCount());
+		}
+		Avg ageAvg1 = aggregations.get("ageAvg");
+		System.out.println("平均年龄："+ageAvg1.getValue());
+
+		Avg balanceAvg1 = aggregations.get("salaryAvg");
+		System.out.println("平均薪资："+balanceAvg1.getValue());
+
+	}
 ```
 
